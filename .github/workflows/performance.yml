@@ -1,10 +1,10 @@
-name: JMeter Performance Tests (Enterprise)
+name: JMeter Performance Tests
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -12,136 +12,60 @@ permissions:
   pages: write
   id-token: write
 
-env:
-  JMETER_VERSION: 5.6.3
-  TEST_PLAN: Test_File.jmx
-  RESULTS_DIR: results
-  JTL_FILE: results/results.jtl
-  REPORT_DIR: results/report
-
-# -------------------------------------------------
-# 1️⃣ JOB: Run JMeter Test
-# -------------------------------------------------
 jobs:
-  run-jmeter:
-    name: Run JMeter Test
+  performance-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '11'
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
-      - name: Install JMeter
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget tar unzip
-          wget https://downloads.apache.org/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
-          tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
-          mv apache-jmeter-${JMETER_VERSION} jmeter
-          echo "$PWD/jmeter/bin" >> $GITHUB_PATH
+    - name: Download Apache JMeter
+      run: |
+        JMETER_VERSION=5.6.3
+        wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+        tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
+        mv apache-jmeter-${JMETER_VERSION} jmeter
 
-      - name: Verify JMeter Installation
-        run: jmeter --version
+    - name: Debug repository structure
+      run: |
+        pwd
+        ls -la
 
-      - name: Execute Performance Test
-        run: |
-          mkdir -p $RESULTS_DIR
-          jmeter -n -t $TEST_PLAN -l $JTL_FILE
+    - name: Run JMeter Test
+      run: |
+        mkdir -p results
+        jmeter/bin/jmeter \
+          -n \
+          -t Test_File.jmx \
+          -l results/results.jtl \
+          -e \
+          -o results/report
 
-      - name: Debug JTL File
-        run: |
-          echo "Listing results directory:"
-          ls -la $RESULTS_DIR
+    - name: Upload JMeter Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: jmeter-results
+        path: results/results.jtl
 
-      - name: Upload JTL Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: jmeter-jtl
-          path: $JTL_FILE
+    - name: Upload JMeter HTML Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: jmeter-html-report
+        path: results/report
 
-# -------------------------------------------------
-# 2️⃣ JOB: Generate HTML Report
-# -------------------------------------------------
-  generate-report:
-    name: Generate HTML Report
-    runs-on: ubuntu-latest
-    needs: run-jmeter
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download JTL Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jmeter-jtl
-          path: $RESULTS_DIR
-
-      - name: Debug Downloaded Artifact
-        run: |
-          echo "Listing downloaded JTL files:"
-          ls -R $RESULTS_DIR
-
-      - name: Install JMeter
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget tar unzip
-          wget https://downloads.apache.org/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
-          tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
-          mv apache-jmeter-${JMETER_VERSION} jmeter
-          echo "$PWD/jmeter/bin" >> $GITHUB_PATH
-
-      - name: Verify JMeter Installation
-        run: jmeter --version
-
-      - name: Generate HTML Dashboard
-        run: |
-          mkdir -p $REPORT_DIR
-          jmeter -g $JTL_FILE -o $REPORT_DIR
-
-      - name: Debug HTML Report
-        run: |
-          echo "Listing report directory:"
-          ls -R $REPORT_DIR
-
-      - name: Upload HTML Report Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: jmeter-html-report
-          path: $REPORT_DIR
-
-# -------------------------------------------------
-# 3️⃣ JOB: Publish HTML Report to GitHub Pages
-# -------------------------------------------------
-  publish-report:
-    name: Publish Report to GitHub Pages
-    runs-on: ubuntu-latest
-    needs: generate-report
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download HTML Report Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jmeter-html-report
-          path: report
-
-      - name: Debug Report Before Publishing
-        run: |
-          echo "Listing HTML report before publishing:"
-          ls -R report
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: report
+    # -------------------------------
+    # Publish HTML Report to GitHub Pages
+    # -------------------------------
+    - name: Deploy JMeter Report to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: results/report
+        publish_branch: gh-pages
