@@ -82,7 +82,7 @@ jobs:
   # -------------------------------
   # Stage 3: Upload Artifacts
   # -------------------------------
-  artifacts:
+  generate_results:
     runs-on: ubuntu-latest
     needs: test
 
@@ -108,9 +108,9 @@ jobs:
   # -------------------------------
   # Stage 4: Deploy to GitHub Pages
   # -------------------------------
-  deploy:
+  publish_HTML_results:
     runs-on: ubuntu-latest
-    needs: artifacts
+    needs: generate_results
 
     steps:
       - name: Download HTML Report
