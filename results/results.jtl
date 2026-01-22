@@ -1,0 +1,4 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1769059577009,869,HTTP Request,200,OK,Thread Group 1-1,text,true,,20065,230,1,1,https://www.google.com/,783,0,763
+1769059577009,787,HTTP Request-0,301,Moved Permanently,Thread Group 1-1,text,true,,832,113,1,1,https://google.com/,783,0,763
+1769059577797,81,HTTP Request-1,200,OK,Thread Group 1-1,text,true,,19233,117,1,1,https://www.google.com/,77,0,33
