@@ -2,9 +2,9 @@ name: JMeter Performance Tests (Enterprise)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -41,9 +41,58 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y wget tar unzip
-          wget https://downloads.apache.org//jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+          wget https://downloads.apache.org/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
           tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
           mv apache-jmeter-${JMETER_VERSION} jmeter
           echo "$PWD/jmeter/bin" >> $GITHUB_PATH
 
-      - name: V
+      - name: Verify JMeter Installation
+        run: jmeter --version
+
+      - name: Execute Performance Test
+        run: |
+          mkdir -p $RESULTS_DIR
+          jmeter -n -t $TEST_PLAN -l $JTL_FILE
+
+      - name: Debug JTL File
+        run: |
+          echo "Listing results directory:"
+          ls -la $RESULTS_DIR
+
+      - name: Upload JTL Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-jtl
+          path: $JTL_FILE
+
+# -------------------------------------------------
+# 2️⃣ JOB: Generate HTML Report
+# -------------------------------------------------
+  generate-report:
+    name: Generate HTML Report
+    runs-on: ubuntu-latest
+    needs: run-jmeter
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download JTL Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jmeter-jtl
+          path: $RESULTS_DIR
+
+      - name: Debug Downloaded Artifact
+        run: |
+          echo "Listing downloaded JTL files:"
+          ls -R $RESULTS_DIR
+
+      - name: Install JMeter
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y wget tar unzip
+          wget https://downloads.apache.org/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+          tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
+          mv apache-jmeter-${JMETER_VERSION} jmeter
+          echo "$PWD/jmeter/
