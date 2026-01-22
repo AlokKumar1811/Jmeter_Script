@@ -33,7 +33,7 @@ jobs:
         mkdir -p results
         jmeter/bin/jmeter \
           -n \
-          -t jmeter/test-plan.jmx \
+          -t Jmeter_Script/Test-File.jmx \
           -l results/results.jtl \
           -e \
           -o results/report
