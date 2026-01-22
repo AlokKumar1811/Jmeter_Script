@@ -39,4 +39,11 @@ jobs:
 
     - name: Install JMeter
       run: |
-        wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VE_
+        sudo apt-get update -y
+        sudo apt-get install -y wget tar unzip
+        wget https://downloads.apache.org//jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+        tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
+        mv apache-jmeter-${JMETER_VERSION} jmeter
+        echo "$PWD/jmeter/bin" >> $GITHUB_PATH
+
+    - name: Ve
