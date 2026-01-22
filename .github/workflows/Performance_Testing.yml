@@ -63,7 +63,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jmeter-jtl
-          path: $RESULTS_DIR
+          path: $JTL_FILE
 
 # -------------------------------------------------
 # 2️⃣ JOB: Generate HTML Report
@@ -81,12 +81,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: jmeter-jtl
-          path: $RESULTS_DIR
+          path: $JTL_FILE
 
       - name: Debug Downloaded Artifact
         run: |
           echo "Listing downloaded JTL files:"
-          ls -R $RESULTS_DIR
+          ls -R $JTL_FILE
 
       - name: Install JMeter
         run: |
