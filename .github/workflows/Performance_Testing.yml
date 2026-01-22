@@ -63,7 +63,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jmeter-jtl
-          path: $JTL_FILE
+          path: $RESULTS_DIR
 
 # -------------------------------------------------
 # 2️⃣ JOB: Generate HTML Report
