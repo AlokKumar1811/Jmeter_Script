@@ -59,6 +59,10 @@ jobs:
           name: jmeter-bin
           path: jmeter
 
+      - name: Make JMeter executable
+        run: |
+          chmod -R a+rx jmeter/bin
+
       - name: Run JMeter Test
         run: |
           mkdir -p results
