@@ -20,7 +20,7 @@ env:
   REPORT_DIR: results/report
 
 # -------------------------------------------------
-# 1️⃣ JOB: Execute JMeter Test
+# 1️⃣ JOB: Run JMeter Test
 # -------------------------------------------------
 jobs:
   run-jmeter:
@@ -28,22 +28,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: '17'
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-    - name: Install JMeter
-      run: |
-        sudo apt-get update -y
-        sudo apt-get install -y wget tar unzip
-        wget https://downloads.apache.org//jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
-        tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
-        mv apache-jmeter-${JMETER_VERSION} jmeter
-        echo "$PWD/jmeter/bin" >> $GITHUB_PATH
+      - name: Install JMeter
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y wget tar unzip
+          wget https://downloads.apache.org//jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+          tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
+          mv apache-jmeter-${JMETER_VERSION} jmeter
+          echo "$PWD/jmeter/bin" >> $GITHUB_PATH
 
-    - name: Ve
+      - name: V
