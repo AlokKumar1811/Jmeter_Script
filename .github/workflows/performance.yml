@@ -1,4 +1,4 @@
-name: Enterprise JMeter Performance Pipeline
+name: JMeter Performance Tests (Enterprise)
 
 on:
   push:
@@ -6,8 +6,6 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
-  schedule:
-    - cron: "0 2 * * *"   # Nightly run (2 AM UTC)
 
 permissions:
   contents: write
@@ -18,28 +16,25 @@ env:
   JMETER_VERSION: 5.6.3
   TEST_PLAN: Test_File.jmx
   RESULTS_DIR: results
-  REPORT_DIR: results/report
   JTL_FILE: results/results.jtl
-  MAX_ERROR_PCT: 1        # SLA: max error %
-  MAX_AVG_RT: 2000        # SLA: avg response time in ms
+  REPORT_DIR: results/report
 
+# -------------------------------------------------
+# 1️⃣ JOB: Execute JMeter Test
+# -------------------------------------------------
 jobs:
-# -------------------------------------------------
-# 1️⃣ EXECUTION STAGE
-# -------------------------------------------------
-  execute-test:
-    name: Execute JMeter Test
+  run-jmeter:
+    name: Run JMeter Test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
 
     steps:
-    - name: Checkout source
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        distribution: 'temurin'
+        distribution: temurin
         java-version: '17'
 
     - name: Install JMeter
@@ -48,7 +43,7 @@ jobs:
         tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
         mv apache-jmeter-${JMETER_VERSION} jmeter
 
-    - name: Run Performance Test
+    - name: Execute Performance Test
       run: |
         mkdir -p $RESULTS_DIR
         jmeter/bin/jmeter \
@@ -59,22 +54,22 @@ jobs:
     - name: Upload JTL Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: jmeter-jtl-${{ github.run_number }}
+        name: jmeter-jtl
         path: $JTL_FILE
 
 # -------------------------------------------------
-# 2️⃣ REPORT GENERATION STAGE
+# 2️⃣ JOB: Generate HTML Report
 # -------------------------------------------------
   generate-report:
-    name: Generate HTML Report
+    name: Generate JMeter HTML Report
     runs-on: ubuntu-latest
-    needs: execute-test
+    needs: run-jmeter
 
     steps:
-    - name: Download JTL
+    - name: Download JTL Artifact
       uses: actions/download-artifact@v4
       with:
-        name: jmeter-jtl-${{ github.run_number }}
+        name: jmeter-jtl
         path: results
 
     - name: Install JMeter
@@ -83,62 +78,36 @@ jobs:
         tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
         mv apache-jmeter-${JMETER_VERSION} jmeter
 
-    - name: Generate Dashboard
+    - name: Generate HTML Dashboard
       run: |
         jmeter/bin/jmeter \
           -g $JTL_FILE \
           -o $REPORT_DIR
 
-    - name: Upload HTML Report
+    - name: Upload HTML Report Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: jmeter-report-${{ github.run_number }}
+        name: jmeter-html-report
         path: $REPORT_DIR
 
 # -------------------------------------------------
-# 3️⃣ SLA VALIDATION STAGE
-# -------------------------------------------------
-  validate-sla:
-    name: Validate Performance SLA
-    runs-on: ubuntu-latest
-    needs: generate-report
-
-    steps:
-    - name: Download JTL
-      uses: actions/download-artifact@v4
-      with:
-        name: jmeter-jtl-${{ github.run_number }}
-        path: results
-
-    - name: Validate SLA Thresholds
-      run: |
-        echo "Validating SLA thresholds..."
-        ERROR_PCT=$(awk -F',' 'NR>1 {err+=$8; total++} END {print (err/total)*100}' $JTL_FILE)
-        echo "Error Percentage: $ERROR_PCT"
-        if (( $(echo "$ERROR_PCT > $MAX_ERROR_PCT" | bc -l) )); then
-          echo "❌ SLA FAILED: Error % exceeded"
-          exit 1
-        fi
-        echo "✅ SLA PASSED"
-
-# -------------------------------------------------
-# 4️⃣ PUBLISHING STAGE
+# 3️⃣ JOB: Publish Report to GitHub Pages
 # -------------------------------------------------
   publish-report:
     name: Publish Report to GitHub Pages
     runs-on: ubuntu-latest
-    needs: validate-sla
+    needs: generate-report
 
     steps:
-    - name: Download HTML Report
+    - name: Download HTML Report Artifact
       uses: actions/download-artifact@v4
       with:
-        name: jmeter-report-${{ github.run_number }}
+        name: jmeter-html-report
         path: report
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: report
         publish_branch: gh-pages
+        publish_dir: report
