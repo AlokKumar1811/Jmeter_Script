@@ -1,4 +1,4 @@
-name: JMeter Performance Tests
+name: Enterprise JMeter Performance Pipeline
 
 on:
   push:
@@ -6,66 +6,139 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"   # Nightly run (2 AM UTC)
 
 permissions:
   contents: write
   pages: write
   id-token: write
 
+env:
+  JMETER_VERSION: 5.6.3
+  TEST_PLAN: Test_File.jmx
+  RESULTS_DIR: results
+  REPORT_DIR: results/report
+  JTL_FILE: results/results.jtl
+  MAX_ERROR_PCT: 1        # SLA: max error %
+  MAX_AVG_RT: 2000        # SLA: avg response time in ms
+
 jobs:
-  performance-test:
+# -------------------------------------------------
+# 1️⃣ EXECUTION STAGE
+# -------------------------------------------------
+  execute-test:
+    name: Execute JMeter Test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-    - name: Checkout repository
+    - name: Checkout source
       uses: actions/checkout@v4
 
-    - name: Set up Java
+    - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Download Apache JMeter
+    - name: Install JMeter
       run: |
-        JMETER_VERSION=5.6.3
         wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
         tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
         mv apache-jmeter-${JMETER_VERSION} jmeter
 
-    - name: Debug repository structure
+    - name: Run Performance Test
       run: |
-        pwd
-        ls -la
-
-    - name: Run JMeter Test
-      run: |
-        mkdir -p results
+        mkdir -p $RESULTS_DIR
         jmeter/bin/jmeter \
           -n \
-          -t Test_File.jmx \
-          -l results/results.jtl \
-          -e \
-          -o results/report
+          -t $TEST_PLAN \
+          -l $JTL_FILE
 
-    - name: Upload JMeter Results
+    - name: Upload JTL Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: jmeter-results
-        path: results/results.jtl
+        name: jmeter-jtl-${{ github.run_number }}
+        path: $JTL_FILE
 
-    - name: Upload JMeter HTML Report
+# -------------------------------------------------
+# 2️⃣ REPORT GENERATION STAGE
+# -------------------------------------------------
+  generate-report:
+    name: Generate HTML Report
+    runs-on: ubuntu-latest
+    needs: execute-test
+
+    steps:
+    - name: Download JTL
+      uses: actions/download-artifact@v4
+      with:
+        name: jmeter-jtl-${{ github.run_number }}
+        path: results
+
+    - name: Install JMeter
+      run: |
+        wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-${JMETER_VERSION}.tgz
+        tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
+        mv apache-jmeter-${JMETER_VERSION} jmeter
+
+    - name: Generate Dashboard
+      run: |
+        jmeter/bin/jmeter \
+          -g $JTL_FILE \
+          -o $REPORT_DIR
+
+    - name: Upload HTML Report
       uses: actions/upload-artifact@v4
       with:
-        name: jmeter-html-report
-        path: results/report
+        name: jmeter-report-${{ github.run_number }}
+        path: $REPORT_DIR
 
-    # -------------------------------
-    # Publish HTML Report to GitHub Pages
-    # -------------------------------
-    - name: Deploy JMeter Report to GitHub Pages
+# -------------------------------------------------
+# 3️⃣ SLA VALIDATION STAGE
+# -------------------------------------------------
+  validate-sla:
+    name: Validate Performance SLA
+    runs-on: ubuntu-latest
+    needs: generate-report
+
+    steps:
+    - name: Download JTL
+      uses: actions/download-artifact@v4
+      with:
+        name: jmeter-jtl-${{ github.run_number }}
+        path: results
+
+    - name: Validate SLA Thresholds
+      run: |
+        echo "Validating SLA thresholds..."
+        ERROR_PCT=$(awk -F',' 'NR>1 {err+=$8; total++} END {print (err/total)*100}' $JTL_FILE)
+        echo "Error Percentage: $ERROR_PCT"
+        if (( $(echo "$ERROR_PCT > $MAX_ERROR_PCT" | bc -l) )); then
+          echo "❌ SLA FAILED: Error % exceeded"
+          exit 1
+        fi
+        echo "✅ SLA PASSED"
+
+# -------------------------------------------------
+# 4️⃣ PUBLISHING STAGE
+# -------------------------------------------------
+  publish-report:
+    name: Publish Report to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: validate-sla
+
+    steps:
+    - name: Download HTML Report
+      uses: actions/download-artifact@v4
+      with:
+        name: jmeter-report-${{ github.run_number }}
+        path: report
+
+    - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: results/report
+        publish_dir: report
         publish_branch: gh-pages
