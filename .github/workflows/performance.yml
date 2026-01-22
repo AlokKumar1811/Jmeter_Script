@@ -19,7 +19,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '11'
+        java-version: '17'
 
     - name: Download Apache JMeter
       run: |
@@ -40,7 +40,7 @@ jobs:
         mkdir -p results
         jmeter/bin/jmeter \
           -n \
-          -t Jmeter_Script/Test_File.jmx \
+          -t Test_File.jmx \
           -l results/results.jtl \
           -e \
           -o results/report
