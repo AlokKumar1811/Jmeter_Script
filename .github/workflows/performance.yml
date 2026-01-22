@@ -19,7 +19,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '17'
+        java-version: '11'
 
     - name: Download Apache JMeter
       run: |
@@ -28,12 +28,19 @@ jobs:
         tar -xzf apache-jmeter-${JMETER_VERSION}.tgz
         mv apache-jmeter-${JMETER_VERSION} jmeter
 
+    - name: Debug repository structure
+      run: |
+        echo "Current directory:"
+        pwd
+        echo "Repository files:"
+        ls -R
+
     - name: Run JMeter Test
       run: |
         mkdir -p results
         jmeter/bin/jmeter \
           -n \
-          -t Jmeter_Script/Test-File.jmx \
+          -t Jmeter_Script/Test_File.jmx \
           -l results/results.jtl \
           -e \
           -o results/report
